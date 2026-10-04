@@ -1,0 +1,14 @@
+{$DOMAIN} {
+	root * /app/public
+	encode {
+		match {
+			not header Content-Type text/event-stream*
+		}
+	}
+	# Все запросы — в единый index.php; flush_interval -1, чтобы прогресс (SSE) шёл без задержки.
+	rewrite * /index.php?{query}
+	php_fastcgi php:9000 {
+		flush_interval -1
+		read_timeout 0
+	}
+}

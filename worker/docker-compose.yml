@@ -1,0 +1,47 @@
+# Запуск на VPS: docker compose up -d --build
+services:
+  php:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /app/data
+      YTDLP_BIN: /usr/local/bin/yt-dlp
+      FFMPEG_BIN: /usr/bin/ffmpeg
+      TRUST_PROXY: "1"
+      POT_URL: http://pot:4416
+    volumes: [data:/app/data]
+    depends_on: [pot]
+
+  # Генератор PO-токенов YouTube (bgutil). Наружу не публикуется — доступен только контейнеру php.
+  pot:
+    image: brainicism/bgutil-ytdlp-pot-provider:2.0.0
+    restart: unless-stopped
+    init: true
+
+  cron:
+    build: .
+    restart: unless-stopped
+    user: www-data
+    env_file: .env
+    environment:
+      DATA_DIR: /app/data
+      YTDLP_BIN: /usr/local/bin/yt-dlp
+      YTDLP_SELF_UPDATE: "1"
+    volumes: [data:/app/data]
+    command: sh -c 'while true; do php /app/cron.php; sleep 600; done'
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./public:/app/public:ro
+      - caddy:/data
+
+volumes:
+  data:
+  caddy:
